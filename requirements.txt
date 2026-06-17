@@ -1,0 +1,13 @@
+# mediapipe 0.10.22+ dropped the legacy Solutions API (mediapipe.solutions),
+# which HandWave's detector relies on. Pin to a version that still ships it.
+mediapipe>=0.10.14,<0.10.22
+# mediapipe already depends on opencv-contrib-python (which provides cv2);
+# listing it here instead of opencv-python avoids a conflicting double install.
+opencv-contrib-python>=4.8.0,<4.12
+# mediapipe requires numpy<2.
+numpy>=1.24.0,<2
+pycaw>=20240104; sys_platform == "win32"
+comtypes>=1.2.0; sys_platform == "win32"
+keyboard>=0.13.5
+pynput>=1.7.6
+rich>=13.0.0
