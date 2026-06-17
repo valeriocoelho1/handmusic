@@ -164,8 +164,26 @@ class MediaController:
         self._system = _SYSTEM
         self.cooldown_s = cooldown_s
         self._last_fired: dict[str, float] = {}
+        # pynput is the primary backend: it sends real media (HID) keys and
+        # works across macOS / Windows / Linux. `keyboard` is a fallback.
+        self._pynput_kb, self._Key = self._try_import_pynput()
         self._keyboard = self._try_import_keyboard()
         logger.debug("MediaController initialised for %s", self._system)
+
+    @staticmethod
+    def _try_import_pynput():
+        """Build a pynput keyboard controller, returning ``(None, None)`` on fail."""
+        try:
+            from pynput.keyboard import Controller, Key
+
+            return Controller(), Key
+        except Exception as exc:  # pragma: no cover - optional dep / perms
+            logger.warning(
+                "pynput unavailable (%s); falling back to the `keyboard` "
+                "package for media keys.",
+                exc,
+            )
+            return None, None
 
     @staticmethod
     def _try_import_keyboard():
@@ -211,30 +229,41 @@ class MediaController:
 
     # -- Platform key delivery ---------------------------------------------
     def _send_play_pause(self) -> None:  # pragma: no cover - platform dependent
-        if self._system == "Darwin":
-            self._macos_key(16)  # NX_KEYTYPE_PLAY
-        elif self._system == "Linux" and self._playerctl("play-pause"):
+        # On Linux, prefer playerctl (MPRIS) which targets the active player.
+        if self._system == "Linux" and self._playerctl("play-pause"):
             return
-        elif self._keyboard is not None:
+        if self._tap_media("media_play_pause"):
+            return
+        if self._keyboard is not None:
             self._keyboard.send("play/pause media")
 
     def _send_next_track(self) -> None:  # pragma: no cover - platform dependent
-        if self._system == "Darwin":
-            self._macos_key(17)  # NX_KEYTYPE_NEXT
-        elif self._system == "Linux" and self._playerctl("next"):
+        if self._system == "Linux" and self._playerctl("next"):
             return
-        elif self._keyboard is not None:
+        if self._tap_media("media_next"):
+            return
+        if self._keyboard is not None:
             self._keyboard.send("next track")
 
-    def _macos_key(self, key_code: int) -> None:  # pragma: no cover
-        """Emit a macOS media key via the system event subsystem."""
-        script = (
-            'tell application "System Events" to key code '
-            f"{key_code} using {{}}"
-        )
-        # Media keys on macOS are special HID keys; osascript `key code` covers
-        # the standard play/next codes used by most media players.
-        subprocess.run(["osascript", "-e", script], check=False)
+    def _tap_media(self, key_name: str) -> bool:  # pragma: no cover
+        """Press and release a pynput media key. Returns success.
+
+        Args:
+            key_name: Attribute name on ``pynput.keyboard.Key`` (e.g.
+                ``"media_play_pause"`` or ``"media_next"``).
+        """
+        if self._pynput_kb is None or self._Key is None:
+            return False
+        key = getattr(self._Key, key_name, None)
+        if key is None:
+            return False
+        try:
+            self._pynput_kb.press(key)
+            self._pynput_kb.release(key)
+            return True
+        except Exception as exc:
+            logger.error("pynput media key %s failed: %s", key_name, exc)
+            return False
 
     def _playerctl(self, command: str) -> bool:  # pragma: no cover
         """Try to control playback via playerctl/dbus. Returns success."""

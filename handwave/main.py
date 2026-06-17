@@ -223,9 +223,9 @@ def _handle_gesture(
         scalar = pct / 100.0
         volume.set_volume(scalar)
         return scalar
-    if gesture == GestureType.FIST:
+    if gesture == GestureType.OPEN_PALM:
         media.play_pause()
-    elif gesture == GestureType.THREE_FINGERS:
+    elif gesture == GestureType.PEACE:
         media.next_track()
     return current_volume
 

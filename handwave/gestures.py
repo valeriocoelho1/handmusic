@@ -20,19 +20,29 @@ logger = logging.getLogger(__name__)
 
 
 class GestureType(Enum):
-    """The set of gestures HandWave can recognise."""
+    """The set of gestures HandWave can recognise.
+
+    Each non-idle gesture is defined by a *unique* combination of which fingers
+    are extended, so they never collide with one another:
+
+    * ``PINCH``     — middle, ring and pinky curled (thumb/index free) → volume
+    * ``OPEN_PALM`` — all four fingers extended → play / pause
+    * ``PEACE``     — index and middle extended, ring and pinky curled → next
+    """
 
     IDLE = "idle"
     PINCH = "pinch"
-    FIST = "fist"
-    THREE_FINGERS = "three_fingers"
+    OPEN_PALM = "open_palm"
+    PEACE = "peace"
 
 
 class GestureClassifier:
     """Classify a frame of hand landmarks into a :class:`GestureType`.
 
-    Gestures are evaluated from most to least restrictive: FIST → THREE_FINGERS
-    → PINCH → IDLE. The first match wins.
+    Gestures are evaluated from most to least restrictive: OPEN_PALM → PEACE →
+    PINCH → IDLE. The first match wins. Because each gesture corresponds to a
+    distinct set of extended fingers, the ordering only resolves transitional
+    frames, not genuine ambiguity.
 
     Args:
         frame_width: Frame width in pixels, used for distance computations.
@@ -72,43 +82,49 @@ class GestureClassifier:
             self.frame_height,
         )
 
-    def _is_fist(self, landmarks: Sequence[Landmark]) -> bool:
-        """All four fingers folded: every tip below (greater Y) its MCP joint."""
-        pairs = (
-            (constants.INDEX_TIP, constants.INDEX_MCP),
-            (constants.MIDDLE_TIP, constants.MIDDLE_MCP),
-            (constants.RING_TIP, constants.RING_MCP),
-            (constants.PINKY_TIP, constants.PINKY_MCP),
-        )
-        return all(
-            landmarks[tip].y > landmarks[mcp].y for tip, mcp in pairs
-        )
+    @staticmethod
+    def _fingers_up(
+        landmarks: Sequence[Landmark],
+    ) -> tuple[bool, bool, bool, bool]:
+        """Return whether index, middle, ring and pinky are each extended.
 
-    def _is_three_fingers(self, landmarks: Sequence[Landmark]) -> bool:
-        """Index, middle and ring up; pinky and thumb closed."""
-        index_up = finger_up(
-            landmarks, constants.INDEX_TIP, constants.INDEX_PIP
-        )
-        middle_up = finger_up(
+        A finger is extended when its tip sits above (smaller Y than) its PIP
+        joint. The thumb is intentionally ignored — it is used only for the
+        pinch distance, never for gating a gesture, since its posture is the
+        least reliable.
+        """
+        index = finger_up(landmarks, constants.INDEX_TIP, constants.INDEX_PIP)
+        middle = finger_up(
             landmarks, constants.MIDDLE_TIP, constants.MIDDLE_PIP
         )
-        ring_up = finger_up(landmarks, constants.RING_TIP, constants.RING_PIP)
-        pinky_down = not finger_up(
-            landmarks, constants.PINKY_TIP, constants.PINKY_PIP
-        )
-        # The thumb is "closed" when its tip is folded toward the palm, i.e. not
-        # extended beyond the IP joint along Y.
-        thumb_down = landmarks[constants.THUMB_TIP].y > landmarks[
-            constants.THUMB_IP
-        ].y
-        return index_up and middle_up and ring_up and pinky_down and thumb_down
+        ring = finger_up(landmarks, constants.RING_TIP, constants.RING_PIP)
+        pinky = finger_up(landmarks, constants.PINKY_TIP, constants.PINKY_PIP)
+        return index, middle, ring, pinky
 
-    def _is_pinch(self, landmarks: Sequence[Landmark]) -> bool:
-        """Thumb and index close enough to be a deliberate pinch."""
-        # A pinch is active whenever the thumb/index pair is within the mapped
-        # range; the upper bound (max_dist) defines the volume scale, not a
-        # gate, so any distance below max_dist while the hand is open counts.
-        return self.last_pinch_distance <= self.pinch_max_dist
+    @staticmethod
+    def _is_open_palm(
+        index: bool, middle: bool, ring: bool, pinky: bool
+    ) -> bool:
+        """All four fingers extended."""
+        return index and middle and ring and pinky
+
+    @staticmethod
+    def _is_peace(
+        index: bool, middle: bool, ring: bool, pinky: bool
+    ) -> bool:
+        """Index and middle extended; ring and pinky curled (a ``V`` sign)."""
+        return index and middle and not ring and not pinky
+
+    @staticmethod
+    def _is_pinch(
+        index: bool, middle: bool, ring: bool, pinky: bool
+    ) -> bool:
+        """A pinch posture: middle, ring and pinky curled.
+
+        The index and thumb are left free because the index naturally curls as
+        the pinch closes (low volume) and extends as it opens (high volume).
+        """
+        return (not middle) and (not ring) and (not pinky)
 
     def classify(self, landmarks: Optional[Sequence[Landmark]]) -> GestureType:
         """Classify a single frame of landmarks.
@@ -125,15 +141,16 @@ class GestureClassifier:
             return GestureType.IDLE
 
         self.last_pinch_distance = self._pinch_distance(landmarks)
+        index, middle, ring, pinky = self._fingers_up(landmarks)
 
         # Evaluate most restrictive first.
-        if self._is_fist(landmarks):
-            logger.debug("Classified FIST")
-            return GestureType.FIST
-        if self._is_three_fingers(landmarks):
-            logger.debug("Classified THREE_FINGERS")
-            return GestureType.THREE_FINGERS
-        if self._is_pinch(landmarks):
+        if self._is_open_palm(index, middle, ring, pinky):
+            logger.debug("Classified OPEN_PALM")
+            return GestureType.OPEN_PALM
+        if self._is_peace(index, middle, ring, pinky):
+            logger.debug("Classified PEACE")
+            return GestureType.PEACE
+        if self._is_pinch(index, middle, ring, pinky):
             logger.debug(
                 "Classified PINCH (dist=%.1f)", self.last_pinch_distance
             )

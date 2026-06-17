@@ -24,8 +24,8 @@ fist to play/pause, and raise three fingers to skip to the next track.
 ## ✨ Features
 
 - 🤏 **Pinch (thumb + index)** → smoothly **control system volume**
-- ✊ **Fist (all fingers closed)** → **play / pause** media
-- 🤟 **Three fingers up (index + middle + ring)** → **next track**
+- ✋ **Open palm (all fingers up)** → **play / pause** media
+- ✌️ **Peace / V sign (index + middle up)** → **next track**
 - 🖥️ Live OpenCV overlay: gesture border, volume bar, pinch line, FPS counter
 - 🧈 Temporal smoothing to eliminate jitter and accidental triggers
 - 🔁 Per-action cooldown so play/pause and next-track fire **once** per gesture
@@ -65,11 +65,15 @@ handwave
 
 | Gesture | Visual | Action | Detection logic |
 |---|---|---|---|
-| 🤏 **Pinch** | Thumb tip and index tip brought together | Set volume | Normalised distance between landmark 4 (thumb tip) and 8 (index tip), mapped to 0–100% |
-| ✊ **Fist** | All fingers curled into the palm | Play / Pause | Tips 8, 12, 16, 20 all below their MCP joints 5, 9, 13, 17 |
-| 🤟 **Three fingers** | Index + middle + ring up, pinky & thumb down | Next track | Tips 8, 12, 16 above their PIP joints; pinky (20) and thumb (4) folded |
+| 🤏 **Pinch** | Thumb + index, with middle/ring/pinky curled | Set volume | Normalised distance between landmark 4 (thumb tip) and 8 (index tip), mapped to 0–100%. Active whenever middle, ring and pinky are curled |
+| ✋ **Open palm** | All four fingers extended | Play / Pause | Index, middle, ring and pinky tips all above their PIP joints |
+| ✌️ **Peace / V** | Index + middle up, ring + pinky curled | Next track | Index and middle tips above their PIP joints; ring and pinky curled |
 
-**Priority** (most restrictive first): `Fist → Three fingers → Pinch → Idle`.
+Each gesture is defined by a **unique set of extended fingers**, so they never
+collide with one another (the thumb is ignored when gating gestures because its
+posture is the least reliable).
+
+**Priority** (most restrictive first): `Open palm → Peace → Pinch → Idle`.
 If no gesture matches, nothing happens.
 
 Pinch-to-volume mapping uses linear interpolation between a full pinch

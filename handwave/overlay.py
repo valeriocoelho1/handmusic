@@ -22,21 +22,21 @@ logger = logging.getLogger(__name__)
 _BORDER_COLORS: dict[GestureType, Optional[tuple[int, int, int]]] = {
     GestureType.IDLE: None,
     GestureType.PINCH: (255, 160, 0),  # blue-ish
-    GestureType.FIST: (0, 140, 255),  # orange
-    GestureType.THREE_FINGERS: (0, 200, 0),  # green
+    GestureType.OPEN_PALM: (0, 140, 255),  # orange
+    GestureType.PEACE: (0, 200, 0),  # green
 }
 
 _GESTURE_LABELS: dict[GestureType, str] = {
     GestureType.IDLE: "IDLE",
     GestureType.PINCH: "PINCH - VOLUME",
-    GestureType.FIST: "FIST - PLAY/PAUSE",
-    GestureType.THREE_FINGERS: "THREE - NEXT TRACK",
+    GestureType.OPEN_PALM: "OPEN PALM - PLAY/PAUSE",
+    GestureType.PEACE: "PEACE (V) - NEXT TRACK",
 }
 
 _ACTION_LABELS: dict[GestureType, str] = {
     GestureType.PINCH: "VOLUME",
-    GestureType.FIST: "PAUSE / PLAY",
-    GestureType.THREE_FINGERS: "NEXT TRACK",
+    GestureType.OPEN_PALM: "PAUSE / PLAY",
+    GestureType.PEACE: "NEXT TRACK",
 }
 
 _WHITE = (255, 255, 255)
