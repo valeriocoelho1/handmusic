@@ -1,7 +1,6 @@
 <div align="center">
 
 ```
- _   _                 ___        __
 | | | | __ _ _ __   __| \ \      / /_ ___   _____
 | |_| |/ _` | '_ \ / _` |\ \ /\ / / _` \ \ / / _ \
 |  _  | (_| | | | | (_| | \ V  V / (_| |\ V /  __/
@@ -9,9 +8,6 @@
 ```
 
 **Control your system volume and media playback with hand gestures — fully local, no cloud.**
-
-<!-- Replace with a recording of the three gestures in action: -->
-<!-- ![HandWave demo](assets/demo.gif) -->
 
 </div>
 
